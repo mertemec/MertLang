@@ -1,220 +1,117 @@
-# Byte-compiled / optimized / DLL files
-__pycache__/
-*.py[codz]
-*$py.class
+import re
+import sys
 
-# C extensions
-*.so
+DATA_CODES = {
+    "AAA": "000", "AAB": "001", "AAC": "002",
+    "ABA": "010", "ABB": "011", "ABC": "012",
+    "ACA": "020", "ACB": "021", "ACC": "022",
+    "BAA": "100", "BAB": "101", "BAC": "102",
+    "BBA": "110", "BBB": "111", "BBC": "112",
+    "BCA": "120", "BCB": "121", "BCC": "122",
+    "CAA": "200", "CAB": "201", "CAC": "202",
+    "CBA": "210", "CBB": "211", "CBC": "212",
+    "CCA": "220", "CCB": "221", "CCC": "222",
+    "ZYF": "999",
+}
 
-# Distribution / packaging
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
+variables = {}
+constants = {}
 
-# PyInstaller
-#   Usually these files are written by a python script from a template
-#   before PyInstaller builds the exe, so as to inject date/other infos into it.
-*.manifest
-*.spec
+def error(message, line_number):
+    print(f"ERROR on line {line_number}: {message}")
+    sys.exit(1)
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+def run(source):
+    for line_number, raw_line in enumerate(source.splitlines(), 1):
+        line = raw_line.strip()
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py.cover
-*.lcov
-.hypothesis/
-.pytest_cache/
-cover/
+        if not line:
+            continue
 
-# Translations
-*.mo
-*.pot
+        # Değişken oluşturma
+        match = re.fullmatch(
+            r'des "([^"]+)" = ([A-Z]{3})',
+            line
+        )
 
-# Django stuff:
-*.log
-local_settings.py
-db.sqlite3
-db.sqlite3-journal
+        if match:
+            name, value = match.groups()
 
-# Flask stuff:
-instance/
-.webassets-cache
+            if name in variables or name in constants:
+                error(f"NAME_ALREADY_EXISTS: {name}", line_number)
 
-# Scrapy stuff:
-.scrapy
+            if value not in DATA_CODES:
+                error(f"INVALID_DATA_CODE: {value}", line_number)
 
-# Sphinx documentation
-docs/_build/
+            variables[name] = value
+            continue
 
-# PyBuilder
-.pybuilder/
-target/
+        # Değişken değiştirme
+        match = re.fullmatch(
+            r'des "([^"]+)" change = ([A-Z]{3})',
+            line
+        )
 
-# Jupyter Notebook
-.ipynb_checkpoints
+        if match:
+            name, value = match.groups()
 
-# IPython
-profile_default/
-ipython_config.py
+            if value not in DATA_CODES:
+                error(f"INVALID_DATA_CODE: {value}", line_number)
 
-# pyenv
-#   For a library or package, you might want to ignore these files since the code is
-#   intended to run in multiple environments; otherwise, check them in:
-# .python-version
+            if name in constants:
+                error(f"CONSTANT_CHANGE: {name}", line_number)
 
-# pipenv
-#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
-#   However, in case of collaboration, if having platform-specific dependencies or dependencies
-#   having no cross-platform support, pipenv may install dependencies that don't work, or not
-#   install all needed dependencies.
-# Pipfile.lock
+            if name not in variables:
+                error(f"UNDEFINED_VARIABLE: {name}", line_number)
 
-# uv
-#   Similar to Pipfile.lock, it is generally recommended to include uv.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-# uv.lock
+            variables[name] = value
+            continue
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-# poetry.lock
-# poetry.toml
+        # Sabit oluşturma
+        match = re.fullmatch(
+            r'dat "([^"]+)" = ([A-Z]{3})',
+            line
+        )
 
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#   pdm recommends including project-wide configuration in pdm.toml, but excluding .pdm-python.
-#   https://pdm-project.org/en/latest/usage/project/#working-with-version-control
-# pdm.lock
-# pdm.toml
-.pdm-python
-.pdm-build/
+        if match:
+            name, value = match.groups()
 
-# pixi
-#   Similar to Pipfile.lock, it is generally recommended to include pixi.lock in version control.
-# pixi.lock
-#   Pixi creates a virtual environment in the .pixi directory, just like venv module creates one
-#   in the .venv directory. It is recommended not to include this directory in version control.
-.pixi/*
-!.pixi/config.toml
+            if name in variables or name in constants:
+                error(f"NAME_ALREADY_EXISTS: {name}", line_number)
 
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
-__pypackages__/
+            if value not in DATA_CODES:
+                error(f"INVALID_DATA_CODE: {value}", line_number)
 
-# Celery stuff
-celerybeat-schedule*
-celerybeat.pid
+            constants[name] = value
+            continue
 
-# Redis
-*.rdb
-*.aof
-*.pid
+        # Sabit değiştirme girişimi
+        match = re.fullmatch(
+            r'dat "([^"]+)" change = ([A-Z]{3})',
+            line
+        )
 
-# RabbitMQ
-mnesia/
-rabbitmq/
-rabbitmq-data/
+        if match:
+            name, _ = match.groups()
+            error(f"CONSTANT_CHANGE: {name}", line_number)
 
-# ActiveMQ
-activemq-data/
+        # Metin yazdırma
+        match = re.fullmatch(
+            r'txtf "([^"]*)" as lettergroup; end\.as',
+            line
+        )
 
-# SageMath parsed files
-*.sage.py
+        if match:
+            print(match.group(1))
+            continue
 
-# Environments
-.env
-.envrc
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+        error("INVALID_SYNTAX", line_number)
 
-# Spyder project settings
-.spyderproject
-.spyproject
 
-# Rope project settings
-.ropeproject
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: python3 main.py program.mert")
+        sys.exit(1)
 
-# mkdocs/Zensical documentation
-/site
-
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
-# Pyre type checker
-.pyre/
-
-# pytype static type analyzer
-.pytype/
-
-# Cython debug symbols
-cython_debug/
-
-# PyCharm
-#   JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#   be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#   and can be added to the global gitignore or merged into this file.  For a more nuclear
-#   option (not recommended) you can uncomment the following to ignore the entire idea folder.
-# .idea/
-
-# Abstra
-#   Abstra is an AI-powered process automation framework.
-#   Ignore directories containing user credentials, local state, and settings.
-#   Learn more at https://abstra.io/docs
-.abstra/
-
-# Visual Studio Code
-#   Visual Studio Code specific template is maintained in a separate VisualStudioCode.gitignore that
-#   can be found at https://github.com/github/gitignore/blob/main/Global/VisualStudioCode.gitignore
-#   and can be added to the global gitignore or merged into this file. However, if you prefer, you
-#   could uncomment the following to ignore the entire vscode folder
-# .vscode/
-# Temporary file for partial code execution
-tempCodeRunnerFile.py
-
-# Ruff stuff:
-.ruff_cache/
-
-# PyPI configuration file
-.pypirc
-
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
-
-# Streamlit
-.streamlit/secrets.toml
+    with open(sys.argv[1], "r", encoding="utf-8") as file:
+        run(file.read())
